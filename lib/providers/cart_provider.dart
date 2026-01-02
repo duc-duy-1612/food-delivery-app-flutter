@@ -38,6 +38,11 @@ class CartProvider extends ChangeNotifier {
   void addItem(FoodModel food, {String note = ""}) {
     final String key = food.id ?? 'unknown';
 
+    if (!food.isAvailable) {
+      print("Món ăn này đã hết hàng, không thể thêm vào giỏ.");
+      return;
+    }
+
     if (_items.containsKey(key)) {
       // Nếu đã có, chỉ cần tăng số lượng và cập nhật note nếu note mới không trống
       _items.update(

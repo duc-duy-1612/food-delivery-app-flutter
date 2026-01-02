@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../../models/order_model.dart';
 import '../../services/api_service.dart';
 import 'admin_order_detail_screen.dart';
-import '../../screens/auth/login_screen.dart';
 
 class AdminOrderScreen extends StatefulWidget {
   const AdminOrderScreen({super.key});
@@ -15,81 +14,102 @@ class AdminOrderScreen extends StatefulWidget {
 class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
 
-  List<OrderModel> _allOrders = []; // Danh sách gốc
-  List<OrderModel> _displayOrders = []; // Danh sách hiển thị (sau khi lọc/tìm)
-
+  // Dữ liệu
+  List<OrderModel> _orders = [];
   bool _isLoading = true;
-  String _searchKeyword = "";
-  late TabController _tabController;
 
-  final List<String> _tabs = ["All", "Placed", "Preparing", "Shipping", "Completed", "Canceled"];
+  // Bộ lọc
+  String _selectedStatus = "All";
+  final List<String> _statuses = ["All", "Placed", "Preparing", "Shipping", "Completed", "Cancelled"];
+
+  // Tìm kiếm và Thời gian
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
-    _tabController.addListener(_filterOrders);
-    _loadAllOrders();
+    _loadOrders();
   }
 
-  Future<void> _loadAllOrders() async {
-    setState(() => _isLoading = true);
-    final data = await _apiService.getAllOrders();
-    setState(() {
-      _allOrders = data;
-      _isLoading = false;
-    });
-    _filterOrders(); // Lọc ngay lần đầu
-  }
-
-  // Hàm lọc dữ liệu theo Tab và Từ khóa tìm kiếm
-  void _filterOrders() {
-    String currentTab = _tabs[_tabController.index];
-
-    setState(() {
-      _displayOrders = _allOrders.where((order) {
-        // 1. Lọc theo Tab Status
-        bool statusMatch = (currentTab == "All") || (order.status == currentTab);
-
-        // 2. Lọc theo Search (Tìm ID hoặc SĐT - SĐT nằm trong userId do ta lưu tạm)
-        bool searchMatch = true;
-        if (_searchKeyword.isNotEmpty) {
-          String id = order.id?.toLowerCase() ?? "";
-          String user = order.userId?.toLowerCase() ?? "";
-          String address = order.address?.toLowerCase() ?? "";
-          String kw = _searchKeyword.toLowerCase();
-          searchMatch = id.contains(kw) || user.contains(kw) || address.contains(kw);
-        }
-
-        return statusMatch && searchMatch;
-      }).toList();
-    });
-  }
-
-  void _updateStatus(OrderModel order, String newStatus) async {
-    bool success = await _apiService.updateOrderStatus(order.id!, newStatus);
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Đơn #${order.id}: Đã chuyển sang $newStatus")));
-      _loadAllOrders(); // Tải lại để cập nhật giao diện
+  Future<void> _loadOrders() async {
+    try {
+      final data = await _apiService.getAllOrders();
+      setState(() {
+        _orders = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print(e);
+      setState(() => _isLoading = false);
     }
   }
 
-  String formatCurrency(dynamic price) {
-    if (price == null) return "0 đ";
-    double realPrice = double.tryParse(price.toString()) ?? 0.0;
+  List<OrderModel> get _filteredOrders {
+    List<OrderModel> temp = _selectedStatus == "All"
+        ? _orders
+        : _orders.where((o) => o.status == _selectedStatus).toList();
 
-    final format = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
-    return format.format(realPrice);
+    if (_searchQuery.isNotEmpty) {
+      String query = _searchQuery.toLowerCase();
+      temp = temp.where((o) {
+        return o.id.toLowerCase().contains(query) ||
+            (o.address ?? "").toLowerCase().contains(query) ||
+            (o.userId.toLowerCase().contains(query));
+      }).toList();
+    }
+
+    if (_startDate != null && _endDate != null) {
+      temp = temp.where((o) {
+        if (o.createdAt == null) return false;
+        DateTime orderDate = DateTime.parse(o.createdAt!);
+        DateTime start = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+        DateTime end = DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
+        return orderDate.isAfter(start) && orderDate.isBefore(end);
+      }).toList();
+    }
+
+    temp.sort((a, b) => (b.createdAt ?? "").compareTo(a.createdAt ?? ""));
+    return temp;
   }
 
+  Future<void> _selectDateRange(BuildContext context) async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            primaryColor: Colors.orange,
+            colorScheme: const ColorScheme.light(primary: Colors.orange),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+    }
+  }
 
+  String formatCurrency(double price) {
+    return NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(price);
+  }
+
+  // --- [MỚI] Hàm lấy màu sắc dựa trên trạng thái ---
   Color getStatusColor(String status) {
     switch (status) {
       case 'Placed': return Colors.blue;
       case 'Preparing': return Colors.orange;
       case 'Shipping': return Colors.purple;
       case 'Completed': return Colors.green;
-      case 'Canceled': return Colors.red;
+      case 'Cancelled': return Colors.red;
       default: return Colors.grey;
     }
   }
@@ -99,153 +119,164 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
     return Scaffold(
       appBar: AppBar(
         title: const Text("Quản Lý Đơn Hàng"),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: _tabs.map((t) => Tab(text: t)).toList(),
-        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
-            },
-          )
+          IconButton(onPressed: _loadOrders, icon: const Icon(Icons.refresh))
         ],
       ),
       body: Column(
         children: [
-          // Thanh tìm kiếm
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: "Tìm kiếm (Mã đơn, Địa chỉ...)",
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
-              ),
-              onChanged: (value) {
-                _searchKeyword = value;
-                _filterOrders();
-              },
+          // 1. Tab trạng thái
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            child: Row(
+              children: _statuses.map((status) {
+                final isSelected = _selectedStatus == status;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: FilterChip(
+                    label: Text(status),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setState(() {
+                        _selectedStatus = status;
+                      });
+                    },
+                    backgroundColor: Colors.grey[200],
+                    selectedColor: Colors.orange[100],
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.orange : Colors.black,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    checkmarkColor: Colors.orange,
+                  ),
+                );
+              }).toList(),
             ),
           ),
 
-          // Danh sách đơn hàng
+          // 2. Khu vực Tìm kiếm & Lọc Thời gian
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: "Tìm mã đơn, địa chỉ khách...",
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = "");
+                      },
+                    )
+                        : null,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  onChanged: (val) => setState(() => _searchQuery = val),
+                ),
+
+                const SizedBox(height: 8),
+
+                InkWell(
+                  onTap: () => _selectDateRange(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.white,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.date_range, color: Colors.orange),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            (_startDate != null && _endDate != null)
+                                ? "${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}"
+                                : "Lọc theo khoảng thời gian",
+                            style: TextStyle(
+                              color: (_startDate != null) ? Colors.black : Colors.grey[600],
+                              fontWeight: (_startDate != null) ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (_startDate != null)
+                          GestureDetector(
+                            onTap: () => setState(() { _startDate = null; _endDate = null; }),
+                            child: const Icon(Icons.close, color: Colors.grey),
+                          )
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 20),
+
+          // 3. Danh sách đơn hàng
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _displayOrders.isEmpty
-                ? const Center(child: Text("Không tìm thấy đơn hàng nào"))
+                : _filteredOrders.isEmpty
+                ? const Center(child: Text("Không tìm thấy đơn hàng nào!"))
                 : ListView.builder(
-              itemCount: _displayOrders.length,
+              padding: const EdgeInsets.all(12),
+              itemCount: _filteredOrders.length,
               itemBuilder: (context, index) {
-                final order = _displayOrders[index];
-                return _buildOrderItem(order);
+                final order = _filteredOrders[index];
+
+                // --- SỬA TẠI ĐÂY: Dùng getStatusColor ---
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    title: Text("Đơn #${order.id}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 5),
+                        Text("Ngày: ${DateFormat('dd/MM HH:mm').format(DateTime.parse(order.createdAt ?? DateTime.now().toString()))}"),
+                        Text("Khách: ${order.address}", maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 5),
+                        // Dòng trạng thái có màu
+                        Row(
+                          children: [
+                            const Text("Trạng thái: "),
+                            Text(
+                                order.status,
+                                style: TextStyle(
+                                    color: getStatusColor(order.status),
+                                    fontWeight: FontWeight.bold
+                                )
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(formatCurrency(order.totalPrice), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => AdminOrderDetailScreen(order: order))).then((_) => _loadOrders());
+                    },
+                  ),
+                );
               },
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOrderItem(OrderModel order) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      elevation: 3,
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        leading: CircleAvatar(
-          backgroundColor: getStatusColor(order.status ?? ""),
-          child: const Icon(Icons.receipt, color: Colors.white, size: 20),
-        ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text("Đơn #${order.id}", style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text(formatCurrency(order.totalPrice ?? 0), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Ngày: ${DateFormat('dd/MM HH:mm').format(DateTime.parse(order.createdAt!))}"),
-            Text("Khách: ${order.address}", maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text("Trạng thái: ${order.status}", style: TextStyle(color: getStatusColor(order.status!), fontWeight: FontWeight.bold)),
-          ],
-        ),
-        children: [
-          ListTile(
-            leading: const Icon(Icons.info_outline, color: Colors.blue),
-            title: const Text("Xem chi tiết đầy đủ (Khách & Món ăn)", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => AdminOrderDetailScreen(order: order)),
-              );
-            },
-          ),
-          const Divider(),
-          // Chi tiết món ăn
-          if (order.items != null)
-            ...order.items!.map((item) {
-              final i = item as Map<String, dynamic>;
-              return ListTile(
-                contentPadding: const EdgeInsets.only(left: 20, right: 20),
-                title: Text(i['name']),
-                // Ép kiểu sang double trước khi nhân để tránh lỗi
-                trailing: Text(
-                  "x${i['quantity']}  ${formatCurrency(
-                      ((i['price'] ?? 0).toDouble()) * ((i['quantity'] ?? 1).toDouble())
-                  )}",
-                ),
-                dense: true,
-              );
-            }).toList(),
-
-          const Divider(),
-          // Nút hành động (Action Buttons)
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Wrap(
-              spacing: 10,
-              alignment: WrapAlignment.end,
-              children: [
-                // Logic hiển thị nút theo quy trình
-                if (order.status == 'Placed')
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.soup_kitchen, size: 16),
-                    label: const Text("Xác nhận nấu"),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
-                    onPressed: () => _updateStatus(order, 'Preparing'),
-                  ),
-                if (order.status == 'Preparing')
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.delivery_dining, size: 16),
-                    label: const Text("Giao Shipper"),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
-                    onPressed: () => _updateStatus(order, 'Shipping'),
-                  ),
-                if (order.status == 'Shipping')
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.check_circle, size: 16),
-                    label: const Text("Đã giao xong"),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                    onPressed: () => _updateStatus(order, 'Completed'),
-                  ),
-                // Nút Hủy (Chỉ hiện khi chưa hoàn thành hoặc chưa hủy)
-                if (order.status != 'Completed' && order.status != 'Canceled')
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.cancel, size: 16),
-                    label: const Text("Hủy đơn"),
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                    onPressed: () => _updateStatus(order, 'Canceled'),
-                  ),
-              ],
-            ),
-          )
         ],
       ),
     );

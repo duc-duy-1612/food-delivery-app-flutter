@@ -30,12 +30,10 @@ class FoodDetailScreen extends StatelessWidget {
                 child: CachedNetworkImage(
                   imageUrl: food.image ?? "",
                   fit: BoxFit.cover,
-                  // SỬA TẠI ĐÂY: Đổi errorBuilder thành errorWidget
                   errorWidget: (ctx, url, error) => Container(
                     color: Colors.grey[200],
                     child: const Icon(Icons.fastfood, size: 100, color: Colors.grey),
                   ),
-                  // Thường nên thêm placeholder khi đang tải ảnh
                   placeholder: (context, url) => const Center(
                     child: CircularProgressIndicator(),
                   ),
@@ -72,22 +70,33 @@ class FoodDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
 
-                    // Đánh giá (Rating) và Tình trạng
+                    // Đánh giá (Rating) và Tình trạng (CẬP NHẬT LOGIC HẾT HÀNG)
                     Row(
                       children: [
                         const Icon(Icons.star, color: Colors.amber, size: 20),
                         const SizedBox(width: 5),
                         Text("${food.rating ?? 5.0} / 5.0", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                         const Spacer(),
+
+                        // --- Hiển thị trạng thái dựa trên isAvailable ---
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
+                            // Nếu có hàng -> Màu xanh, Hết hàng -> Màu đỏ
+                            color: food.isAvailable ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(5),
-                            border: Border.all(color: Colors.green),
+                            border: Border.all(color: food.isAvailable ? Colors.green : Colors.red),
                           ),
-                          child: const Text("Còn hàng", style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
+                          child: Text(
+                              food.isAvailable ? "Còn hàng" : "Hết hàng",
+                              style: TextStyle(
+                                  color: food.isAvailable ? Colors.green : Colors.red,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold
+                              )
+                          ),
                         )
+                        // ------------------------------------------------
                       ],
                     ),
                     const Divider(height: 30),
@@ -111,7 +120,7 @@ class FoodDetailScreen extends StatelessWidget {
         ],
       ),
 
-      // Nút "Thêm vào giỏ" ghim ở dưới đáy
+      // Nút "Thêm vào giỏ" ghim ở dưới đáy (CẬP NHẬT LOGIC HẾT HÀNG)
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -121,22 +130,40 @@ class FoodDetailScreen extends StatelessWidget {
         child: SizedBox(
           height: 50,
           child: ElevatedButton.icon(
-            icon: const Icon(Icons.add_shopping_cart, color: Colors.white),
-            label: const Text("THÊM VÀO GIỎ HÀNG", style: TextStyle(color: Colors.white, fontSize: 18)),
+            // Icon thay đổi nếu hết hàng
+            icon: Icon(
+                food.isAvailable ? Icons.add_shopping_cart : Icons.remove_shopping_cart,
+                color: Colors.white
+            ),
+            // Text thay đổi nếu hết hàng
+            label: Text(
+                food.isAvailable ? "THÊM VÀO GIỎ HÀNG" : "TẠM HẾT HÀNG",
+                style: const TextStyle(color: Colors.white, fontSize: 18)
+            ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
+              // Màu nút thay đổi: Cam (có hàng) vs Xám (hết hàng)
+              backgroundColor: food.isAvailable ? Colors.orange : Colors.grey,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            onPressed: () {
-              // Gọi Provider để thêm vào giỏ
+            onPressed: food.isAvailable
+                ? () {
+              // Logic khi CÒN hàng
               Provider.of<CartProvider>(context, listen: false).addItem(food);
-
-              // Hiển thị thông báo
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text("Đã thêm ${food.name} vào giỏ!"),
                   duration: const Duration(seconds: 1),
                   backgroundColor: Colors.green,
+                ),
+              );
+            }
+                : () {
+              // Logic khi HẾT hàng (Bấm vào sẽ báo lỗi)
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Món này hiện đang tạm ngưng phục vụ!"),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 2),
                 ),
               );
             },

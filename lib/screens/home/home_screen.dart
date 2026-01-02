@@ -229,15 +229,43 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // Ảnh món ăn
               Expanded(
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-                  child: CachedNetworkImage(
-                    imageUrl: food.image ?? "",
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                    errorWidget: (context, url, error) => const Icon(Icons.error),
-                  ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                      child: CachedNetworkImage(
+                        imageUrl: food.image ?? "",
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                        errorWidget: (context, url, error) => const Icon(Icons.error),
+                      ),
+                    ),
+                    // Hiển thị lớp phủ mờ nếu hết hàng
+                    if (!food.isAvailable)
+                      Container(
+                        color: Colors.black.withOpacity(0.5),
+                        alignment: Alignment.center,
+                        child: Transform.rotate(
+                          angle: -0.5,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.red, width: 2),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: const Text(
+                              "HẾT HÀNG",
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               // Thông tin tên, giá
@@ -257,17 +285,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 5),
-                    // Nút thêm vào giỏ
+
+                    // --- NÚT THÊM VÀO GIỎ ĐÃ CẬP NHẬT ---
                     SizedBox(
                       width: double.infinity,
                       height: 30,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
+                          // Nếu có hàng -> Màu cam, Nếu hết hàng -> Màu xám
+                          backgroundColor: food.isAvailable ? Colors.orange : Colors.grey,
                           padding: EdgeInsets.zero,
                         ),
-                        onPressed: () {
-                          // Gọi Provider để thêm vào giỏ
+                        onPressed: food.isAvailable
+                            ? () {
+                          // Logic thêm món khi còn hàng
                           Provider.of<CartProvider>(context, listen: false).addItem(food);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -275,10 +306,25 @@ class _HomeScreenState extends State<HomeScreen> {
                               duration: const Duration(seconds: 1),
                             ),
                           );
+                        }
+                            : () {
+                          // Logic báo lỗi khi hết hàng
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Món này hiện đang tạm hết, vui lòng quay lại sau!"),
+                              backgroundColor: Colors.red,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
                         },
-                        child: const Text("Thêm", style: TextStyle(color: Colors.white)),
+                        child: Text(
+                          food.isAvailable ? "Thêm" : "Hết hàng",
+                          style: const TextStyle(color: Colors.white),
+                        ),
                       ),
                     )
+                    // ------------------------------------
+
                   ],
                 ),
               ),

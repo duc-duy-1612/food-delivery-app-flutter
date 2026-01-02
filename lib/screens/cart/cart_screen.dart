@@ -53,6 +53,11 @@ class _CartScreenState extends State<CartScreen> {
 
     final user = Provider.of<UserProvider>(context, listen: false).user;
 
+    String customerName = "Khách lẻ";
+    if (user != null && user.name != null && user.name!.trim().isNotEmpty) {
+      customerName = user.name!;
+    }
+
     List<Map<String, dynamic>> orderItems = [];
     cart.items.forEach((key, cartItem) {
       orderItems.add({
@@ -68,6 +73,9 @@ class _CartScreenState extends State<CartScreen> {
     OrderModel newOrder = OrderModel(
       id: "",
       userId: user?.id ?? "unknown_user",
+      userName: customerName,
+      userPhone: user?.phone ?? "",
+      userEmail: user?.email ?? "",
       totalPrice: cart.totalAmount,
       status: "Placed",
       address: _addressController.text,

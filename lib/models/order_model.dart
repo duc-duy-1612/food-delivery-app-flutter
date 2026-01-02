@@ -3,6 +3,9 @@ import 'dart:convert';
 class OrderModel {
   final String id;
   final String userId;
+  final String? userName;
+  final String? userPhone; // THÊM
+  final String? userEmail; // THÊM
   final double totalPrice;
   final String status;
   final String address;
@@ -12,6 +15,9 @@ class OrderModel {
   OrderModel({
     required this.id,
     required this.userId,
+    required this.userName,
+    required this.userPhone, // THÊM
+    required this.userEmail, // THÊM
     required this.totalPrice,
     required this.status,
     required this.address,
@@ -24,7 +30,11 @@ class OrderModel {
     return OrderModel(
       id: json['id'],
       userId: json['userId'],
-      // Xử lý an toàn cho số thực (double)
+      userName: (json['userName'] != null && json['userName'].toString().isNotEmpty)
+          ? json['userName'].toString()
+          : "Khách lẻ",
+      userPhone: json['userPhone']?.toString() ?? "",
+      userEmail: json['userEmail']?.toString() ?? "",
       totalPrice: double.tryParse(json['totalPrice'].toString()) ?? 0.0,
       status: json['status'],
       address: json['address'],
@@ -42,6 +52,9 @@ class OrderModel {
     return {
       // Không gửi ID vì MockAPI tự tạo
       'userId': userId,
+      'userName': userName,
+      'userPhone': userPhone,
+      'userEmail': userEmail,
       'totalPrice': totalPrice,
       'status': status,
       'address': address,

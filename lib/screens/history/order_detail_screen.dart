@@ -58,11 +58,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         _currentOrder = OrderModel(
           id: _currentOrder.id,
           userId: _currentOrder.userId,
+          userName: _currentOrder.userName,
           totalPrice: _currentOrder.totalPrice,
           status: 'Canceled',
           address: _currentOrder.address,
           createdAt: _currentOrder.createdAt,
           items: _currentOrder.items,
+          userEmail: _currentOrder.userEmail,
+          userPhone: _currentOrder.userPhone,
         );
       });
 

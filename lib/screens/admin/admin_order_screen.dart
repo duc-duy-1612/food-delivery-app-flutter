@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../models/order_model.dart';
 import '../../services/api_service.dart';
 import 'admin_order_detail_screen.dart';
+import '../auth/login_screen.dart';
 
 class AdminOrderScreen extends StatefulWidget {
   const AdminOrderScreen({super.key});
@@ -14,15 +15,12 @@ class AdminOrderScreen extends StatefulWidget {
 class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
 
-  // Dữ liệu
   List<OrderModel> _orders = [];
   bool _isLoading = true;
 
-  // Bộ lọc
   String _selectedStatus = "All";
   final List<String> _statuses = ["All", "Placed", "Preparing", "Shipping", "Completed", "Cancelled"];
 
-  // Tìm kiếm và Thời gian
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
   DateTime? _startDate;
@@ -53,11 +51,23 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
         : _orders.where((o) => o.status == _selectedStatus).toList();
 
     if (_searchQuery.isNotEmpty) {
-      String query = _searchQuery.toLowerCase();
+      String query = _searchQuery.toLowerCase().trim(); // Xóa khoảng trắng thừa
       temp = temp.where((o) {
-        return o.id.toLowerCase().contains(query) ||
-            (o.address ?? "").toLowerCase().contains(query) ||
-            (o.userId.toLowerCase().contains(query));
+        final id = o.id.toLowerCase();
+        final address = (o.address ?? "").toLowerCase();
+        final userId = o.userId.toLowerCase();
+
+        // Lấy tên khách hàng để tìm kiếm
+        final userName = (o.userName ?? "").toLowerCase();
+        final userPhone = (o.userPhone ?? "").toLowerCase();
+        final userEmail = (o.userEmail ?? "").toLowerCase();
+
+        return id.contains(query) ||
+            address.contains(query) ||
+            userId.contains(query) ||
+            userName.contains(query) ||
+            userPhone.contains(query) ||
+            userEmail.contains(query);
       }).toList();
     }
 
@@ -102,7 +112,6 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
     return NumberFormat.currency(locale: 'vi_VN', symbol: 'đ').format(price);
   }
 
-  // --- [MỚI] Hàm lấy màu sắc dựa trên trạng thái ---
   Color getStatusColor(String status) {
     switch (status) {
       case 'Placed': return Colors.blue;
@@ -119,8 +128,15 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
     return Scaffold(
       appBar: AppBar(
         title: const Text("Quản Lý Đơn Hàng"),
+
         actions: [
-          IconButton(onPressed: _loadOrders, icon: const Icon(Icons.refresh))
+          IconButton(onPressed: _loadOrders, icon: const Icon(Icons.refresh)),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+            },
+          )
         ],
       ),
       body: Column(
@@ -144,10 +160,6 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
                     },
                     backgroundColor: Colors.grey[200],
                     selectedColor: Colors.orange[100],
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.orange : Colors.black,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
                     checkmarkColor: Colors.orange,
                   ),
                 );
@@ -155,7 +167,7 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
             ),
           ),
 
-          // 2. Khu vực Tìm kiếm & Lọc Thời gian
+          // 2. Tìm kiếm
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: Column(
@@ -163,7 +175,7 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: "Tìm mã đơn, địa chỉ khách...",
+                    hintText: "Nhập tên khách hàng, mã đơn...",
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
@@ -172,8 +184,7 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
                         _searchController.clear();
                         setState(() => _searchQuery = "");
                       },
-                    )
-                        : null,
+                    ) : null,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                     filled: true,
@@ -181,9 +192,7 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
                   ),
                   onChanged: (val) => setState(() => _searchQuery = val),
                 ),
-
                 const SizedBox(height: 8),
-
                 InkWell(
                   onTap: () => _selectDateRange(context),
                   child: Container(
@@ -223,7 +232,7 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
 
           const Divider(height: 20),
 
-          // 3. Danh sách đơn hàng
+          // 3. Danh sách
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -235,7 +244,11 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
               itemBuilder: (context, index) {
                 final order = _filteredOrders[index];
 
-                // --- SỬA TẠI ĐÂY: Dùng getStatusColor ---
+                // Logic hiển thị tên: Ưu tiên userName, nếu không có thì fallback
+                String displayName = (order.userName != null && order.userName!.isNotEmpty)
+                    ? order.userName!
+                    : "Khách lẻ (Chưa cập nhật tên)";
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
@@ -245,9 +258,26 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
                       children: [
                         const SizedBox(height: 5),
                         Text("Ngày: ${DateFormat('dd/MM HH:mm').format(DateTime.parse(order.createdAt ?? DateTime.now().toString()))}"),
-                        Text("Khách: ${order.address}", maxLines: 1, overflow: TextOverflow.ellipsis),
+
+                        // --- HIỂN THỊ TÊN KHÁCH HÀNG ---
+                        RichText(
+                          text: TextSpan(
+                            style: const TextStyle(color: Colors.black87, fontSize: 14),
+                            children: [
+                              const TextSpan(text: "Khách: ", style: TextStyle(fontWeight: FontWeight.bold)),
+                              TextSpan(
+                                  text: "$displayName ",
+                                  style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)
+                              ),
+                              TextSpan(text: "- ${order.address}"),
+                            ],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        // --------------------------------
+
                         const SizedBox(height: 5),
-                        // Dòng trạng thái có màu
                         Row(
                           children: [
                             const Text("Trạng thái: "),

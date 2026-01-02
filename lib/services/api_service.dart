@@ -211,6 +211,49 @@ class ApiService {
     }
   }
 
+  // ... (Giữ nguyên các hàm cũ)
+
+  // --- ADMIN: QUẢN LÝ DANH MỤC ---
+
+  // Thêm danh mục
+  Future<bool> addCategory(CategoryModel category) async {
+    try {      final response = await http.post(
+      Uri.parse('$baseUrl/categories'),
+      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      encoding: Encoding.getByName('utf-8'),
+      body: jsonEncode(category.toJson()),
+    );
+    return response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Sửa danh mục
+  Future<bool> updateCategory(CategoryModel category) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/categories/${category.id}'),
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        encoding: Encoding.getByName('utf-8'),
+        body: jsonEncode(category.toJson()),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Xóa danh mục
+  Future<bool> deleteCategory(String id) async {
+    try {
+      final response = await http.delete(Uri.parse('$baseUrl/categories/$id'));
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<UserModel?> getUserById(String id) async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/users/$id'));
@@ -224,4 +267,18 @@ class ApiService {
       return null;
     }
   }
+    // --- ADMIN: Lấy tất cả Users ---
+    Future<List<UserModel>> getAllUsers() async {
+      try {
+        final response = await http.get(Uri.parse('$baseUrl/users'));
+        if (response.statusCode == 200) {
+          List<dynamic> body = _decodeBody(response);
+          return body.map((e) => UserModel.fromJson(e)).toList();
+        }
+        return [];
+      } catch (e) {
+        print("Lỗi getAllUsers: $e");
+        return [];
+      }
+    }
 }

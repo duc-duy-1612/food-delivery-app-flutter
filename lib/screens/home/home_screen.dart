@@ -13,6 +13,7 @@ import '../auth/login_screen.dart';
 import '../cart/cart_screen.dart';
 import '../history/history_screen.dart';
 import '../home/profile_screen.dart';
+import '../home/food_detail_screen.dart'; // Import màn hình chi tiết món ăn
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<CategoryModel> _categories = [];
   List<FoodModel> _foods = [];
   bool _isLoading = true;
-  String _selectedCategoryId = "ALL"; // Mặc định chọn tất cả
+  String _selectedCategoryId = "ALL";
 
   @override
   void initState() {
@@ -52,7 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Hàm format tiền tệ (Ví dụ: 45000 -> 45.000 đ)
   String formatCurrency(double price) {
     final format = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
     return format.format(price);
@@ -79,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Food Delivery", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text("Cơm Tấm Kim ", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             Text("Hi, ${user?.name ?? 'Khách'}", style: const TextStyle(fontSize: 14, color: Colors.grey)),
           ],
         ),
@@ -88,7 +88,6 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () {
-              // Chuyển sang màn hình Lịch sử (Sẽ tạo ở bước sau)
               Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
             },
           ),
@@ -98,7 +97,6 @@ class _HomeScreenState extends State<HomeScreen> {
               IconButton(
                 icon: const Icon(Icons.shopping_cart),
                 onPressed: () {
-                  // Chuyển sang màn hình Giỏ hàng (Sẽ tạo ở bước sau)
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen()));
                 },
               ),
@@ -123,7 +121,6 @@ class _HomeScreenState extends State<HomeScreen> {
           // Nút Hồ sơ cá nhân
           IconButton(icon: const Icon(Icons.person),
             onPressed: () {
-              // Nhớ import 'profile_screen.dart' ở đầu file
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
             },
           ),
@@ -214,68 +211,80 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Widget hiển thị 1 thẻ món ăn
   Widget _buildFoodCard(FoodModel food) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Ảnh món ăn
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-              child: CachedNetworkImage(
-                imageUrl: food.image ?? "",
-                fit: BoxFit.cover,
-                width: double.infinity,
-                placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                errorWidget: (context, url, error) => const Icon(Icons.error),
-              ),
-            ),
-          ),
-          // Thông tin tên, giá
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  food.name ?? "Món ăn",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                Text(
-                  formatCurrency(food.price ?? 0),
-                  style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 5),
-                // Nút thêm vào giỏ
-                SizedBox(
-                  width: double.infinity,
-                  height: 30,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      padding: EdgeInsets.zero,
-                    ),
-                    onPressed: () {
-                      // Gọi Provider để thêm vào giỏ
-                      Provider.of<CartProvider>(context, listen: false).addItem(food);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Đã thêm ${food.name} vào giỏ!"),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                    child: const Text("Thêm", style: TextStyle(color: Colors.white)),
+    // Bọc Card trong GestureDetector để xử lý sự kiện bấm vào xem chi tiết
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => FoodDetailScreen(food: food)),
+        );
+      },
+      child: Hero(
+        tag: food.id!, // Hero animation tag
+        child: Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Ảnh món ăn
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                  child: CachedNetworkImage(
+                    imageUrl: food.image ?? "",
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                    errorWidget: (context, url, error) => const Icon(Icons.error),
                   ),
-                )
-              ],
-            ),
+                ),
+              ),
+              // Thông tin tên, giá
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      food.name ?? "Món ăn",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    Text(
+                      formatCurrency(food.price ?? 0),
+                      style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 5),
+                    // Nút thêm vào giỏ
+                    SizedBox(
+                      width: double.infinity,
+                      height: 30,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                          padding: EdgeInsets.zero,
+                        ),
+                        onPressed: () {
+                          // Gọi Provider để thêm vào giỏ
+                          Provider.of<CartProvider>(context, listen: false).addItem(food);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("Đã thêm ${food.name} vào giỏ!"),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        child: const Text("Thêm", style: TextStyle(color: Colors.white)),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

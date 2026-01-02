@@ -1,66 +1,76 @@
 import 'package:flutter/material.dart';
 import 'admin_order_screen.dart';
 import 'admin_food_screen.dart';
-import '../auth/login_screen.dart';
 import 'admin_stats_screen.dart';
+import 'admin_customer_screen.dart';
+import '../auth/login_screen.dart';
 
-class AdminHomeScreen extends StatelessWidget {
+class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
+
+  @override
+  State<AdminHomeScreen> createState() => _AdminHomeScreenState();
+}
+
+class _AdminHomeScreenState extends State<AdminHomeScreen> {
+  int _selectedIndex = 0;
+
+  // 2. Cập nhật danh sách màn hình (Thêm AdminCustomerScreen vào vị trí thứ 2)
+  static final List<Widget> _widgetOptions = <Widget>[
+    const AdminOrderScreen(),
+    const AdminFoodScreen(),
+    const AdminCustomerScreen(),
+    const AdminStatsScreen(),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("TRANG QUẢN TRỊ (ADMIN)"),
-        backgroundColor: Colors.redAccent,
-        foregroundColor: Colors.white, // Chữ màu trắng cho nổi bật trên nền đỏ
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              // Đăng xuất thì về lại màn hình Login
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
-            },
-          )
+      // Body hiển thị màn hình tương ứng
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _widgetOptions,
+      ),
+
+      // Thanh điều hướng dưới đáy
+      bottomNavigationBar: NavigationBar(
+        height: 65,
+        elevation: 5,
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onItemTapped,
+        backgroundColor: Colors.white,
+        indicatorColor: Colors.redAccent.withOpacity(0.2),
+        // 3. Cập nhật danh sách nút bấm (Thêm nút Khách hàng)
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.list_alt_outlined),
+            selectedIcon: Icon(Icons.list_alt, color: Colors.redAccent),
+            label: 'Đơn Hàng',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.restaurant_menu_outlined),
+            selectedIcon: Icon(Icons.restaurant_menu, color: Colors.redAccent),
+            label: 'Thực Đơn',
+          ),
+          // --- THÊM MỚI ---
+          NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people, color: Colors.redAccent),
+            label: 'Khách Hàng',
+          ),
+
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart, color: Colors.redAccent),
+            label: 'Thống Kê',
+          ),
         ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildAdminButton(context, "QUẢN LÝ ĐƠN HÀNG", Icons.list_alt, const AdminOrderScreen()),
-
-            // Tăng khoảng cách lên 40 cho thoáng
-            const SizedBox(height: 40),
-
-            _buildAdminButton(context, "QUẢN LÝ THỰC ĐƠN", Icons.restaurant_menu, const AdminFoodScreen()),
-
-            // Tăng khoảng cách lên 40 cho thoáng
-            const SizedBox(height: 40),
-
-            _buildAdminButton(context, "THỐNG KÊ & BÁO CÁO", Icons.bar_chart, const AdminStatsScreen()),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAdminButton(BuildContext context, String title, IconData icon, Widget page) {
-    return SizedBox(
-      width: 280, // Tăng chiều rộng một chút cho đẹp
-      height: 65, // Tăng chiều cao một chút
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blueGrey,
-            foregroundColor: Colors.white,
-            elevation: 5, // Thêm đổ bóng
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)) // Bo tròn góc
-        ),
-        icon: Icon(icon, size: 30),
-        label: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-        },
       ),
     );
   }

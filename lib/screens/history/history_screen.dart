@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
+// Import các model và provider
 import '../../models/order_model.dart';
 import '../../services/api_service.dart';
 import '../../providers/user_provider.dart';
-import 'order_detail_screen.dart'; // Import file vừa tạo
+import 'order_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -21,11 +23,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void initState() {
     super.initState();
     final user = Provider.of<UserProvider>(context, listen: false).user;
-    // Gọi API lấy đơn hàng của User hiện tại
     _ordersFuture = _apiService.getOrdersByUserId(user?.id ?? "");
   }
 
-  // Hàm refresh để tải lại danh sách khi kéo xuống
   Future<void> _refresh() async {
     final user = Provider.of<UserProvider>(context, listen: false).user;
     setState(() {
@@ -44,6 +44,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       case 'Preparing': return Colors.orange;
       case 'Shipping': return Colors.purple;
       case 'Completed': return Colors.green;
+      case 'Cancelled': return Colors.red;
       default: return Colors.grey;
     }
   }
@@ -54,6 +55,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       case 'Preparing': return "Đang chuẩn bị";
       case 'Shipping': return "Đang giao";
       case 'Completed': return "Hoàn thành";
+      case 'Cancelled': return "Đã hủy";
       default: return status;
     }
   }
@@ -78,6 +80,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             }
 
             final orders = snapshot.data!;
+            // Sắp xếp đơn mới nhất lên đầu
+            orders.sort((a, b) => (b.createdAt).compareTo(a.createdAt));
 
             return ListView.builder(
               padding: const EdgeInsets.all(10),
@@ -92,15 +96,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text("Đơn #${order.id}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        // Hiển thị trạng thái (Badge)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                              color: getStatusColor(order.status ?? "").withOpacity(0.2),
+                              color: getStatusColor(order.status ?? "").withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10)
                           ),
                           child: Text(
                             getStatusText(order.status ?? ""),
-                            style: TextStyle(color: getStatusColor(order.status ?? ""), fontSize: 12, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                color: getStatusColor(order.status ?? ""),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold
+                            ),
                           ),
                         )
                       ],
@@ -120,7 +129,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         context,
                         MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order)),
                       );
-                      // Khi quay lại thì reload để cập nhật trạng thái mới (nếu có bấm demo admin)
                       _refresh();
                     },
                   ),

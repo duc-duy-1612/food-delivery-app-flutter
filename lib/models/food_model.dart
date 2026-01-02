@@ -1,31 +1,35 @@
 class FoodModel {
-  final String id;
-  final String categoryId;
-  final String name;
-  final double price;
-  final String image;
-  final String description;
-  final double rating;
+  String? id;
+  String? categoryId;
+  String? name;
+  double? price;
+  String? image;
+  String? description;
+  double? rating;
+  bool isAvailable; // THÊM DÒNG NÀY
 
   FoodModel({
-    required this.id,
-    required this.categoryId,
-    required this.name,
-    required this.price,
-    required this.image,
-    required this.description,
-    required this.rating,
+    this.id,
+    this.categoryId,
+    this.name,
+    this.price,
+    this.image,
+    this.description,
+    this.rating,
+    this.isAvailable = true, // Mặc định là có sẵn
   });
 
   factory FoodModel.fromJson(Map<String, dynamic> json) {
     return FoodModel(
-      id: json['id'] ?? '',
-      categoryId: json['categoryId'] ?? '',
-      name: json['name'] ?? 'Unknown Food',
+      id: json['id'],
+      categoryId: json['categoryId'],
+      name: json['name'],
       price: double.tryParse(json['price'].toString()) ?? 0.0,
-      image: json['image'] ?? '',
-      description: json['description'] ?? '',
+      image: json['image'],
+      description: json['description'],
       rating: double.tryParse(json['rating'].toString()) ?? 0.0,
+      // Đọc trạng thái từ API (nếu null thì coi như true)
+      isAvailable: json['isAvailable'] == false ? false : true,
     );
   }
 
@@ -37,14 +41,12 @@ class FoodModel {
       'description': description,
       'categoryId': categoryId,
       'rating': rating,
+      'isAvailable': isAvailable, // Gửi lên API
     };
 
-    // Chỉ gửi ID nếu nó có giá trị thực sự (khi sửa món)
-    // Khi thêm mới (id rỗng hoặc null), ta KHÔNG gửi id đi để MockAPI tự tạo
-    if (id.isNotEmpty) {
+    if (id != null && id!.isNotEmpty) {
       data['id'] = id;
     }
-
     return data;
   }
 }

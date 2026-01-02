@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../models/order_model.dart';
 import '../../services/api_service.dart';
 import 'admin_order_detail_screen.dart';
+import '../../screens/auth/login_screen.dart';
 
 class AdminOrderScreen extends StatefulWidget {
   const AdminOrderScreen({super.key});
@@ -103,6 +104,14 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> with SingleTickerPr
           isScrollable: true,
           tabs: _tabs.map((t) => Tab(text: t)).toList(),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+            },
+          )
+        ],
       ),
       body: Column(
         children: [
